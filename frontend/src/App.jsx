@@ -3,9 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Tasks from './pages/Tasks';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -40,7 +42,19 @@ export default function App() {
               path="/" 
               element={
                 <PrivateRoute>
-                  <Dashboard />
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/tasks" 
+              element={
+                <PrivateRoute>
+                  <Layout>
+                    <Tasks />
+                  </Layout>
                 </PrivateRoute>
               } 
             />
