@@ -34,7 +34,7 @@ const Req = ({ met, label }) => (
 );
 
 export default function Register() {
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'member', adminSecret: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -85,7 +85,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await register(form.name, form.email, form.password, form.confirmPassword);
+      await register(form.name, form.email, form.password, form.confirmPassword, form.role, form.adminSecret);
       toast.success('Account created! Welcome to Nexus Pro.');
       navigate('/');
     } catch (error) {
@@ -135,6 +135,47 @@ export default function Register() {
               />
             </div>
           </div>
+
+          {/* Role Selection */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Role</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="role" value="member" checked={form.role === 'member'} onChange={handleChange} className="accent-nexus-gold" />
+                Member
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="role" value="admin" checked={form.role === 'admin'} onChange={handleChange} className="accent-nexus-gold" />
+                Admin
+              </label>
+            </div>
+          </div>
+
+          {/* Admin Secret Key */}
+          <AnimatePresence>
+            {form.role === 'admin' && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="space-y-1.5 overflow-hidden"
+              >
+                <label className="text-sm font-medium">Admin Secret Key</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    name="adminSecret"
+                    type="password"
+                    value={form.adminSecret}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-transparent border border-white/20 rounded-xl focus:border-nexus-gold focus:ring-1 focus:ring-nexus-gold outline-none transition-all text-sm"
+                    placeholder="Enter the secret key"
+                    required={form.role === 'admin'}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Email — Gmail only */}
           <div className="space-y-1.5">

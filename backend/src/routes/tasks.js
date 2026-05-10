@@ -13,6 +13,7 @@ const enrichTask = (task) => {
     : null;
   task.created_by_user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(task.created_by);
   task.project = db.prepare('SELECT id, name FROM projects WHERE id = ?').get(task.project_id);
+  task.is_overdue = !!(task.due_date && task.status !== 'done' && new Date(task.due_date) < new Date());
   return task;
 };
 
@@ -52,7 +53,7 @@ router.get('/', authenticate, [
 });
 
 // POST /api/tasks
-router.post('/', authenticate, requireRole('admin', 'manager'), [
+router.post('/', authenticate, [
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 200 }),
   body('description').optional().trim().isLength({ max: 1000 }),
   body('status').optional().isIn(['todo','in_progress','in_review','done']),
@@ -118,17 +119,6 @@ router.put('/:id', authenticate, [
     return res.status(403).json({ message: 'Access denied.' });
   }
 
-  // Members can only update status of their own tasks
-  if (req.user.role === 'member') {
-    if (task.assignee_id !== req.user.id) {
-      return res.status(403).json({ message: 'You can only update tasks assigned to you.' });
-    }
-    const allowed = Object.keys(req.body).filter(k => !['status'].includes(k));
-    if (allowed.length > 0) {
-      return res.status(403).json({ message: 'Members can only update task status.' });
-    }
-  }
-
   const { title, description, status, priority, due_date, assignee_id } = req.body;
 
   if (title !== undefined)       db.prepare('UPDATE tasks SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(title, task.id);
@@ -147,7 +137,7 @@ router.put('/:id', authenticate, [
 });
 
 // DELETE /api/tasks/:id
-router.delete('/:id', authenticate, requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id', authenticate, (req, res) => {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
   if (!task) return res.status(404).json({ message: 'Task not found.' });
 

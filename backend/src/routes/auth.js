@@ -48,7 +48,14 @@ router.post('/register', [
     return res.status(422).json({ message: errors.array()[0].msg, errors: errors.array() });
   }
 
-  const { name, email, password } = req.body;
+  const { name, email, password, role = 'member', adminSecret } = req.body;
+
+  if (role === 'admin') {
+    const expectedSecret = process.env.NEXUS_ADMIN_SECRET_KEY || 'admin123';
+    if (adminSecret !== expectedSecret) {
+      return res.status(401).json({ message: 'Invalid Admin Secret Key.' });
+    }
+  }
 
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
   if (existing) return res.status(409).json({ message: 'This email is already registered.' });
@@ -56,7 +63,7 @@ router.post('/register', [
   const hash = bcrypt.hashSync(password, 10);
   const result = db.prepare(
     'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)'
-  ).run(name, email, hash, 'member');
+  ).run(name, email, hash, role);
 
   const user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
   const tokens = generateTokens(user);
@@ -289,6 +296,41 @@ router.post('/google-access', async (req, res) => {
     console.error('Google access-token OAuth error:', err.message);
     res.status(401).json({ message: 'Google sign-in failed. Please try again.' });
   }
+});
+
+// ── PUT /api/auth/profile ───────────────────────────────────────────────────
+router.put('/profile', authenticate, [
+  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }),
+  body('bio').optional({ nullable: true }).trim().isLength({ max: 500 }),
+  body('job_title').optional({ nullable: true }).trim().isLength({ max: 100 }),
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+  const { name, bio, job_title } = req.body;
+  db.prepare('UPDATE users SET name = ?, bio = ?, job_title = ? WHERE id = ?').run(
+    name.trim(),
+    bio || null,
+    job_title || null,
+    req.user.id
+  );
+  const user = db.prepare('SELECT id, name, email, role, avatar, bio, job_title FROM users WHERE id = ?').get(req.user.id);
+  res.json({ user });
+});
+
+// ── PUT /api/auth/change-password ────────────────────────────────────────────
+router.put('/change-password', authenticate, [
+  body('currentPassword').notEmpty(),
+  body('newPassword').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!user || !user.password_hash) return res.status(400).json({ message: 'Cannot change password for OAuth accounts.' });
+  const ok = await bcrypt.compare(req.body.currentPassword, user.password_hash);
+  if (!ok) return res.status(400).json({ message: 'Current password is incorrect.' });
+  const hash = await bcrypt.hash(req.body.newPassword, 12);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, user.id);
+  res.json({ message: 'Password changed successfully.' });
 });
 
 module.exports = router;

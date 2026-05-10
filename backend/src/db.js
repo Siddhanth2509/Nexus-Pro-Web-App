@@ -18,8 +18,10 @@ db.exec(`
     name       TEXT NOT NULL,
     email      TEXT NOT NULL UNIQUE,
     password   TEXT NOT NULL,
-    role       TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin','manager','member')),
+    role       TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin','member')),
     avatar     TEXT,
+    bio        TEXT,
+    job_title  TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -73,6 +75,11 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+// ─── Auto-Migrations ──────────────────────────────────────────────────────────
+try { db.prepare('ALTER TABLE users ADD COLUMN bio TEXT;').run(); } catch(e) {}
+try { db.prepare('ALTER TABLE users ADD COLUMN job_title TEXT;').run(); } catch(e) {}
+try { db.prepare("UPDATE users SET role = 'admin' WHERE role = 'manager';").run(); } catch(e) {}
 
 // ─── Seed Admin User ──────────────────────────────────────────────────────────
 

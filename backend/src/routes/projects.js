@@ -57,7 +57,7 @@ router.get('/', authenticate, (req, res) => {
 });
 
 // POST /api/projects
-router.post('/', authenticate, requireRole('admin', 'manager'), [
+router.post('/', authenticate, requireRole('admin'), [
   body('name').trim().notEmpty().withMessage('Project name is required').isLength({ max: 100 }),
   body('description').optional().trim().isLength({ max: 500 }),
   body('status').optional().isIn(['active','on_hold','completed','archived']),
@@ -115,14 +115,14 @@ router.put('/:id', authenticate, requireProjectOwnerOrAdmin(db), [
 });
 
 // DELETE /api/projects/:id
-router.delete('/:id', authenticate, requireRole('admin', 'manager'), requireProjectOwnerOrAdmin(db), (req, res) => {
+router.delete('/:id', authenticate, requireRole('admin'), requireProjectOwnerOrAdmin(db), (req, res) => {
   const id = parseInt(req.params.id);
   db.prepare('DELETE FROM projects WHERE id = ?').run(id);
   res.json({ message: 'Project deleted successfully.' });
 });
 
 // POST /api/projects/:id/members
-router.post('/:id/members', authenticate, requireRole('admin', 'manager'), (req, res) => {
+router.post('/:id/members', authenticate, requireRole('admin'), (req, res) => {
   const projectId = parseInt(req.params.id);
   const { userId } = req.body;
   if (!userId) return res.status(422).json({ message: 'userId is required.' });
@@ -141,7 +141,7 @@ router.post('/:id/members', authenticate, requireRole('admin', 'manager'), (req,
 });
 
 // DELETE /api/projects/:id/members/:uid
-router.delete('/:id/members/:uid', authenticate, requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id/members/:uid', authenticate, requireRole('admin'), (req, res) => {
   const projectId = parseInt(req.params.id);
   const userId    = parseInt(req.params.uid);
 

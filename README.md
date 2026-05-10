@@ -32,7 +32,6 @@ Open `http://localhost:5173` in your browser.
 
 Default accounts seeded on first run:
 - `admin@ethara.ai` / `Admin@123`
-- `manager@ethara.ai` / `Manager@123`
 - `member@ethara.ai` / `Member@123`
 
 ## Deploying to Railway
@@ -53,7 +52,7 @@ Default accounts seeded on first run:
 | POST | `/api/auth/reset-password` | — | Reset password with code |
 | GET | `/api/auth/me` | ✓ | Current user profile |
 | GET | `/api/projects` | ✓ | List projects you belong to |
-| POST | `/api/projects` | admin/manager | Create a project |
+| POST | `/api/projects` | admin | Create a project |
 | GET | `/api/tasks` | ✓ | List your tasks |
 | POST | `/api/tasks` | ✓ | Create a task |
 | GET | `/api/dashboard/stats` | ✓ | Dashboard summary |
@@ -61,8 +60,7 @@ Default accounts seeded on first run:
 ## Roles
 
 - **Admin** — full access, can manage users and all projects
-- **Manager** — can create projects and assign tasks
-- **Member** — can view and update tasks assigned to them
+- **Member** — can create, view, and update tasks assigned to them within their projects
 
 ## Notes
 

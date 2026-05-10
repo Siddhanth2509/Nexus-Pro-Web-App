@@ -7,84 +7,52 @@ const router = express.Router();
 // GET /api/dashboard/stats
 router.get('/stats', authenticate, (req, res) => {
   const isAdmin = req.user.role === 'admin';
-  const userId  = req.user.id;
+  const uid     = req.user.id;
 
-  // Project stats
-  const projectCount = isAdmin
+  const memberSql = isAdmin ? '' :
+    ` AND t.project_id IN (SELECT project_id FROM project_members WHERE user_id = ${uid})`;
+
+  const totalTasks     = db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE 1=1${memberSql}`).get().c;
+  const activeTasks    = db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE status IN ('todo','in_progress')${memberSql}`).get().c;
+  const completedTasks = db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE status = 'done'${memberSql}`).get().c;
+  const overdueTasks   = db.prepare(`SELECT COUNT(*) as c FROM tasks t WHERE due_date < date('now') AND status != 'done'${memberSql}`).get().c;
+
+  const totalProjects = isAdmin
     ? db.prepare('SELECT COUNT(*) as c FROM projects').get().c
-    : db.prepare('SELECT COUNT(*) as c FROM project_members WHERE user_id = ?').get(userId).c;
+    : db.prepare('SELECT COUNT(*) as c FROM project_members WHERE user_id = ?').get(uid).c;
 
-  const projectsByStatus = isAdmin
-    ? db.prepare('SELECT status, COUNT(*) as count FROM projects GROUP BY status').all()
-    : db.prepare(`
-        SELECT p.status, COUNT(*) as count FROM projects p
-        JOIN project_members pm ON p.id = pm.project_id
-        WHERE pm.user_id = ?
-        GROUP BY p.status
-      `).all(userId);
+  const statusRows = db.prepare(`SELECT status, COUNT(*) as count FROM tasks t WHERE 1=1${memberSql} GROUP BY status`).all();
+  const statusBreakdown = { todo: 0, in_progress: 0, done: 0 };
+  statusRows.forEach(r => { if (r.status in statusBreakdown) statusBreakdown[r.status] = r.count; });
 
-  // Task stats
-  const tasksByStatus = isAdmin
-    ? db.prepare('SELECT status, COUNT(*) as count FROM tasks GROUP BY status').all()
-    : db.prepare(`
-        SELECT t.status, COUNT(*) as count FROM tasks t
-        JOIN project_members pm ON t.project_id = pm.project_id
-        WHERE pm.user_id = ?
-        GROUP BY t.status
-      `).all(userId);
+  const priorityRows = db.prepare(`SELECT priority, COUNT(*) as count FROM tasks t WHERE 1=1${memberSql} GROUP BY priority`).all();
+  const priorityBreakdown = { high: 0, medium: 0, low: 0 };
+  priorityRows.forEach(r => { if (r.priority in priorityBreakdown) priorityBreakdown[r.priority] = r.count; });
 
-  const myTasks = isAdmin
-    ? db.prepare('SELECT COUNT(*) as c FROM tasks').get().c
-    : db.prepare('SELECT COUNT(*) as c FROM tasks WHERE assignee_id = ?').get(userId).c;
+  const recentRaw = db.prepare(`
+    SELECT t.*, p.name as project_name, u.name as assignee_name, u.avatar as assignee_avatar
+    FROM tasks t
+    LEFT JOIN projects p ON t.project_id = p.id
+    LEFT JOIN users u ON t.assignee_id = u.id
+    WHERE 1=1${memberSql}
+    ORDER BY t.created_at DESC LIMIT 10
+  `).all();
 
-  const overdueTasks = isAdmin
-    ? db.prepare("SELECT COUNT(*) as c FROM tasks WHERE due_date < date('now') AND status != 'done'").get().c
-    : db.prepare("SELECT COUNT(*) as c FROM tasks WHERE assignee_id = ? AND due_date < date('now') AND status != 'done'").get(userId).c;
+  const recentTasks = recentRaw.map(t => ({
+    id: t.id, title: t.title, status: t.status, priority: t.priority,
+    dueDate: t.due_date, projectName: t.project_name,
+    assigneeName: t.assignee_name, assigneeAvatar: t.assignee_avatar,
+    isOverdue: !!(t.due_date && t.status !== 'done' && new Date(t.due_date) < new Date()),
+  }));
 
-  const urgentTasks = isAdmin
-    ? db.prepare("SELECT COUNT(*) as c FROM tasks WHERE priority = 'urgent' AND status != 'done'").get().c
-    : db.prepare("SELECT COUNT(*) as c FROM tasks WHERE assignee_id = ? AND priority = 'urgent' AND status != 'done'").get(userId).c;
-
-  // Recent activity
   const recentActivity = db.prepare(`
-    SELECT a.*, u.name as user_name, u.avatar as user_avatar
-    FROM activity_log a
+    SELECT a.*, u.name as user_name FROM activity_log a
     LEFT JOIN users u ON a.user_id = u.id
-    ORDER BY a.created_at DESC
-    LIMIT 10
+    ORDER BY a.created_at DESC LIMIT 10
   `).all();
 
-  // User count (admin only)
-  const userCount = isAdmin ? db.prepare('SELECT COUNT(*) as c FROM users').get().c : null;
-
-  // Task completion by priority
-  const tasksByPriority = isAdmin
-    ? db.prepare("SELECT priority, COUNT(*) as count FROM tasks GROUP BY priority").all()
-    : db.prepare("SELECT priority, COUNT(*) as count FROM tasks WHERE assignee_id = ? GROUP BY priority").all(userId);
-
-  // Weekly task creation trend (last 7 days)
-  const weeklyTrend = db.prepare(`
-    SELECT date(created_at) as date, COUNT(*) as count
-    FROM tasks
-    WHERE created_at >= date('now', '-7 days')
-    GROUP BY date(created_at)
-    ORDER BY date ASC
-  `).all();
-
-  res.json({
-    stats: {
-      projectCount,
-      myTasks,
-      overdueTasks,
-      urgentTasks,
-      userCount,
-    },
-    projectsByStatus,
-    tasksByStatus,
-    tasksByPriority,
-    weeklyTrend,
-    recentActivity,
-  });
+  res.json({ totalTasks, activeTasks, completedTasks, overdueTasks, totalProjects,
+    statusBreakdown, priorityBreakdown, recentTasks, recentActivity });
 });
 
 module.exports = router;
