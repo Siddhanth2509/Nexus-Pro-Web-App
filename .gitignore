@@ -1,14 +1,10 @@
-node_modules
-dist
+node_modules/
+dist/
 .env
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 .DS_Store
-database.sqlite
-database.sqlite-wal
-database.sqlite-shm
-
-# Exclude reference/scaffold folders
+Thumbs.db
 Kimi_Agent_Role-based Project Tracker/
 gemma/
-new.txt
-start-backend.bat
-start-frontend.bat

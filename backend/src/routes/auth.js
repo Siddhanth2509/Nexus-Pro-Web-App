@@ -21,33 +21,44 @@ const generateTokens = (user) => {
   return { access, refresh };
 };
 
-// POST /api/auth/register
+// ── POST /api/auth/register ───────────────────────────────────────────────────
 router.post('/register', [
-  body('name').trim().notEmpty().withMessage('Name is required').isLength({ min: 2, max: 50 }),
-  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Full name is required.')
+    .isLength({ min: 2, max: 50 }).withMessage('Name must be between 2 and 50 characters.'),
+  body('email')
+    .isEmail().withMessage('A valid email address is required.')
+    .matches(/@gmail\.com$/).withMessage('Only Gmail addresses (@gmail.com) are accepted.')
+    .normalizeEmail(),
   body('password')
-    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
-    .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
-    .matches(/[0-9]/).withMessage('Password must contain a number'),
-  body('role').optional().isIn(['admin','manager','member']).withMessage('Invalid role'),
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long.')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter.')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number.')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character (!@#$ etc).'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.password) throw new Error('Passwords do not match.');
+    return true;
+  }),
 ], (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+  if (!errors.isEmpty()) {
+    return res.status(422).json({ message: errors.array()[0].msg, errors: errors.array() });
+  }
 
-  const { name, email, password, role = 'member' } = req.body;
+  const { name, email, password } = req.body;
 
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (existing) return res.status(409).json({ message: 'Email already registered.' });
+  if (existing) return res.status(409).json({ message: 'This email is already registered.' });
 
   const hash = bcrypt.hashSync(password, 10);
   const result = db.prepare(
     'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)'
-  ).run(name, email, hash, role);
+  ).run(name, email, hash, 'member');
 
   const user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
   const tokens = generateTokens(user);
 
-  // Log activity
   db.prepare('INSERT INTO activity_log (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)').run(
     user.id, 'registered', 'user', user.id
   );
@@ -55,13 +66,13 @@ router.post('/register', [
   res.status(201).json({ user, ...tokens });
 });
 
-// POST /api/auth/login
+// ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', [
-  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password required'),
+  body('email').isEmail().withMessage('Valid email required.').normalizeEmail(),
+  body('password').notEmpty().withMessage('Password is required.'),
 ], (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+  if (!errors.isEmpty()) return res.status(422).json({ message: errors.array()[0].msg });
 
   const { email, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
@@ -80,7 +91,74 @@ router.post('/login', [
   res.json({ user: safeUser, ...tokens });
 });
 
-// POST /api/auth/refresh
+// ── POST /api/auth/forgot-password ───────────────────────────────────────────
+// Generates a 6-digit OTP and stores it (in production, send via email service)
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Valid email required.').normalizeEmail(),
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(422).json({ message: errors.array()[0].msg });
+
+  const { email } = req.body;
+  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+
+  // Always respond with success to prevent email enumeration
+  if (!user) {
+    return res.json({ message: 'If this email is registered, a reset code has been sent.' });
+  }
+
+  // Generate 6-digit OTP
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
+
+  // Invalidate old codes for this email
+  db.prepare('UPDATE password_resets SET used = 1 WHERE email = ?').run(email);
+
+  // Store new code
+  db.prepare('INSERT INTO password_resets (email, code, expires_at) VALUES (?, ?, ?)').run(email, code, expiresAt);
+
+  // In development, log the code to console (in production, send email via nodemailer/sendgrid)
+  console.log(`\n📧 Password reset code for ${email}: ${code} (expires in 15 min)\n`);
+
+  res.json({
+    message: 'If this email is registered, a reset code has been sent.',
+    // dev_only_code is exposed only in development for testing
+    ...(process.env.NODE_ENV !== 'production' && { dev_code: code })
+  });
+});
+
+// ── POST /api/auth/reset-password ────────────────────────────────────────────
+router.post('/reset-password', [
+  body('email').isEmail().normalizeEmail(),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits.'),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters.')
+    .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter.')
+    .matches(/[0-9]/).withMessage('Password must contain a number.')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain a special character.'),
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(422).json({ message: errors.array()[0].msg });
+
+  const { email, code, password } = req.body;
+
+  const record = db.prepare(
+    'SELECT * FROM password_resets WHERE email = ? AND code = ? AND used = 0 ORDER BY id DESC LIMIT 1'
+  ).get(email, code);
+
+  if (!record) return res.status(400).json({ message: 'Invalid or expired reset code.' });
+  if (new Date(record.expires_at) < new Date()) {
+    return res.status(400).json({ message: 'Reset code has expired. Please request a new one.' });
+  }
+
+  const hash = bcrypt.hashSync(password, 10);
+  db.prepare('UPDATE users SET password = ? WHERE email = ?').run(hash, email);
+  db.prepare('UPDATE password_resets SET used = 1 WHERE id = ?').run(record.id);
+
+  res.json({ message: 'Password reset successfully. You can now log in.' });
+});
+
+// ── POST /api/auth/refresh ────────────────────────────────────────────────────
 router.post('/refresh', (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) return res.status(401).json({ message: 'Refresh token required.' });
@@ -95,18 +173,18 @@ router.post('/refresh', (req, res) => {
   }
 });
 
-// GET /api/auth/me
+// ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user });
 });
 
-// PATCH /api/auth/profile
+// ── PATCH /api/auth/profile ───────────────────────────────────────────────────
 router.patch('/profile', authenticate, [
   body('name').optional().trim().isLength({ min: 2, max: 50 }),
   body('avatar').optional().isURL().withMessage('Avatar must be a valid URL'),
 ], (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+  if (!errors.isEmpty()) return res.status(422).json({ message: errors.array()[0].msg });
 
   const { name, avatar } = req.body;
   if (name)   db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, req.user.id);
