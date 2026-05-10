@@ -1,0 +1,25 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        nexus: {
+          dark: '#0A0B0E',
+          gold: '#D4AF37',
+          gray: '#1E2024',
+          light: '#F8F9FA'
+        }
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        serif: ['Georgia', 'serif'],
+      }
+    },
+  },
+  plugins: [],
+}
