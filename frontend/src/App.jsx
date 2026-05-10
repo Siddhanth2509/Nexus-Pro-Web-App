@@ -1,4 +1,5 @@
 import React from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './context/ThemeContext';
@@ -11,9 +12,11 @@ import Tasks from './pages/Tasks';
 import Projects from './pages/Projects';
 import ForgotPassword from './pages/ForgotPassword';
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -21,60 +24,56 @@ function PrivateRoute({ children }) {
       </div>
     );
   }
-  
+
   return user ? children : <Navigate to="/login" replace />;
 }
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Toaster 
-            position="top-center" 
-            toastOptions={{
-              className: 'dark:bg-nexus-gray dark:text-white',
-              duration: 3000
-            }} 
-          />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route 
-              path="/" 
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </PrivateRoute>
-              } 
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <ThemeProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                className: 'dark:bg-nexus-gray dark:text-white',
+                duration: 3000
+              }}
             />
-            <Route 
-              path="/tasks" 
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Tasks />
-                  </Layout>
-                </PrivateRoute>
-              } 
-            />
-            <Route 
-              path="/projects" 
-              element={
-                <PrivateRoute>
-                  <Layout>
-                    <Projects />
-                  </Layout>
-                </PrivateRoute>
-              } 
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <Layout><Dashboard /></Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/tasks"
+                element={
+                  <PrivateRoute>
+                    <Layout><Tasks /></Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/projects"
+                element={
+                  <PrivateRoute>
+                    <Layout><Projects /></Layout>
+                  </PrivateRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
+    </GoogleOAuthProvider>
   );
 }

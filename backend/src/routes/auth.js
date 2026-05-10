@@ -2,10 +2,12 @@ const express  = require('express');
 const bcrypt    = require('bcryptjs');
 const jwt       = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
+const { OAuth2Client } = require('google-auth-library');
 const db        = require('../db');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateTokens = (user) => {
   const access = jwt.sign(
@@ -192,6 +194,101 @@ router.patch('/profile', authenticate, [
 
   const updated = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(req.user.id);
   res.json({ user: updated });
+});
+
+// ── POST /api/auth/google ────────────────────────────────────────────────────
+// Accepts a Google credential (ID token) from the frontend and signs the user in
+router.post('/google', async (req, res) => {
+  const { credential } = req.body;
+  if (!credential) return res.status(400).json({ message: 'Google credential required.' });
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name, picture, email_verified } = payload;
+
+    if (!email_verified) return res.status(401).json({ message: 'Google email not verified.' });
+    if (!email.endsWith('@gmail.com')) return res.status(422).json({ message: 'Only Gmail accounts are accepted.' });
+
+    // Find or create user
+    let user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE email = ?').get(email);
+
+    if (!user) {
+      // New user — register with Google
+      const result = db.prepare(
+        'INSERT INTO users (name, email, password, role, avatar) VALUES (?, ?, ?, ?, ?)'
+      ).run(name, email, 'GOOGLE_OAUTH', 'member', picture);
+      user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+      db.prepare('INSERT INTO activity_log (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)').run(
+        user.id, 'registered_via_google', 'user', user.id
+      );
+    } else {
+      // Update avatar from Google if not set
+      if (!user.avatar && picture) {
+        db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(picture, user.id);
+        user.avatar = picture;
+      }
+      db.prepare('INSERT INTO activity_log (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)').run(
+        user.id, 'logged_in_via_google', 'user', user.id
+      );
+    }
+
+    const tokens = generateTokens(user);
+    res.json({ user, ...tokens });
+  } catch (err) {
+    console.error('Google OAuth error:', err.message);
+    res.status(401).json({ message: 'Invalid Google token. Please try again.' });
+  }
+});
+
+// ── POST /api/auth/google-access ────────────────────────────────────────────
+// Works with useGoogleLogin() which returns an access_token (not ID token)
+// We fetch user info from Google's userinfo endpoint and sign them in
+router.post('/google-access', async (req, res) => {
+  const { access_token } = req.body;
+  if (!access_token) return res.status(400).json({ message: 'Access token required.' });
+
+  try {
+    // Fetch user profile from Google
+    const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+    if (!response.ok) throw new Error('Failed to fetch Google user info');
+    const { email, name, picture, email_verified } = await response.json();
+
+    if (!email_verified) return res.status(401).json({ message: 'Google email not verified.' });
+    if (!email.endsWith('@gmail.com')) return res.status(422).json({ message: 'Only Gmail accounts are accepted.' });
+
+    // Find or create user
+    let user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE email = ?').get(email);
+
+    if (!user) {
+      const result = db.prepare(
+        'INSERT INTO users (name, email, password, role, avatar) VALUES (?, ?, ?, ?, ?)'
+      ).run(name, email, 'GOOGLE_OAUTH', 'member', picture);
+      user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+      db.prepare('INSERT INTO activity_log (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)').run(
+        user.id, 'registered_via_google', 'user', user.id
+      );
+    } else {
+      if (!user.avatar && picture) {
+        db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(picture, user.id);
+        user.avatar = picture;
+      }
+      db.prepare('INSERT INTO activity_log (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)').run(
+        user.id, 'logged_in_via_google', 'user', user.id
+      );
+    }
+
+    const tokens = generateTokens(user);
+    res.json({ user, ...tokens });
+  } catch (err) {
+    console.error('Google access-token OAuth error:', err.message);
+    res.status(401).json({ message: 'Google sign-in failed. Please try again.' });
+  }
 });
 
 module.exports = router;
