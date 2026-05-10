@@ -5,3 +5,10 @@ dist
 database.sqlite
 database.sqlite-wal
 database.sqlite-shm
+
+# Exclude reference/scaffold folders
+Kimi_Agent_Role-based Project Tracker/
+gemma/
+new.txt
+start-backend.bat
+start-frontend.bat
