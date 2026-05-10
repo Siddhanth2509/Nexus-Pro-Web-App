@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
+import Projects from './pages/Projects';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -54,6 +55,16 @@ export default function App() {
                 <PrivateRoute>
                   <Layout>
                     <Tasks />
+                  </Layout>
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/projects" 
+              element={
+                <PrivateRoute>
+                  <Layout>
+                    <Projects />
                   </Layout>
                 </PrivateRoute>
               } 
