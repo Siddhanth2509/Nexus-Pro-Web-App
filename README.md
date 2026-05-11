@@ -38,9 +38,20 @@ Default accounts seeded on first run:
 
 1. Push this repo to GitHub
 2. Create a new project on [railway.app](https://railway.app) from your repo
-3. Add two services — one with root directory `backend`, another with `frontend`
-4. Add a PostgreSQL plugin to the backend service; Railway injects `DATABASE_URL` automatically
-5. Set `JWT_SECRET` and `JWT_REFRESH_SECRET` in the backend environment variables
+3. Add two services:
+	- Backend service root directory: `backend`
+	- Frontend service root directory: `frontend`
+4. Configure backend service:
+	- Build command: `npm install`
+	- Start command: `npm start`
+	- Environment variables: `JWT_SECRET`, `JWT_REFRESH_SECRET`, and `NODE_ENV=production`
+5. Configure frontend service:
+	- Build command: `npm install && npm run build`
+	- Start command: `npx serve -s dist -l $PORT`
+	- Environment variables:
+	  - `VITE_API_URL=https://<your-backend-service>.up.railway.app`
+	  - `VITE_GOOGLE_CLIENT_ID=<your-google-oauth-client-id>`
+6. Redeploy both services after setting environment variables
 
 ## API reference
 

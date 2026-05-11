@@ -19,6 +19,9 @@ export default function Login() {
   const { login, loginWithGoogle } = useAuth();
   const { theme, toggleTheme }     = useTheme();
   const navigate                   = useNavigate();
+  const googleClientIdRaw          = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+  const googleClientId             = googleClientIdRaw.includes('YOUR_GOOGLE_CLIENT_ID') ? '' : googleClientIdRaw;
+  const isGoogleEnabled            = Boolean(googleClientId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,16 +42,9 @@ export default function Login() {
     onSuccess: async (tokenResponse) => {
       setGLoading(true);
       try {
-        // Exchange access_token for user info, then send credential to backend
-        const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-        });
-        // We pass the id_token if available, otherwise use access_token flow
-        const res = await axios.post('/api/auth/google-access', {
-          access_token: tokenResponse.access_token
-        });
-        localStorage.setItem('token', res.data.access);
-        window.location.href = '/';
+        await loginWithGoogle({ accessToken: tokenResponse.access_token });
+        toast.success('Logged in with Google!');
+        navigate('/');
       } catch (err) {
         toast.error(err.response?.data?.message || 'Google sign-in failed.');
       } finally {
@@ -57,6 +53,14 @@ export default function Login() {
     },
     onError: () => toast.error('Google sign-in was cancelled.'),
   });
+
+  const handleGoogleClick = () => {
+    if (!isGoogleEnabled) {
+      toast.error('Google sign-in is not configured. Missing VITE_GOOGLE_CLIENT_ID.');
+      return;
+    }
+    handleGoogle();
+  };
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -141,8 +145,8 @@ export default function Login() {
           {/* Google Sign In Button */}
           <button
             type="button"
-            onClick={() => handleGoogle()}
-            disabled={googleLoading}
+            onClick={handleGoogleClick}
+            disabled={googleLoading || !isGoogleEnabled}
             className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-white/20 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-50"
           >
             {googleLoading ? (
@@ -157,6 +161,12 @@ export default function Login() {
             )}
             <span className="text-sm font-medium">Continue with Google</span>
           </button>
+
+          {!isGoogleEnabled && (
+            <p className="text-xs text-amber-400 text-center">
+              Google sign-in is disabled until VITE_GOOGLE_CLIENT_ID is set.
+            </p>
+          )}
         </form>
 
         <div className="mt-6 text-center text-sm text-muted-foreground">

@@ -47,8 +47,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const loginWithGoogle = async (credential) => {
-    const res = await axios.post('/api/auth/google', { credential });
+  const loginWithGoogle = async ({ credential, accessToken }) => {
+    const payload = credential
+      ? { credential }
+      : { access_token: accessToken };
+    const endpoint = credential ? '/api/auth/google' : '/api/auth/google-access';
+
+    if (!credential && !accessToken) {
+      throw new Error('Google token is missing.');
+    }
+
+    const res = await axios.post(endpoint, payload);
     localStorage.setItem('token', res.data.access);
     setUser(res.data.user);
     return res.data;

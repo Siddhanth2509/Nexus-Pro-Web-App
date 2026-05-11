@@ -90,11 +90,6 @@ if (!existingAdmin) {
     'Admin User', 'admin@ethara.ai', hash, 'admin'
   );
 
-  const managerHash = bcrypt.hashSync('Manager@123', 10);
-  db.prepare(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`).run(
-    'Sarah Manager', 'manager@ethara.ai', managerHash, 'manager'
-  );
-
   const memberHash = bcrypt.hashSync('Member@123', 10);
   db.prepare(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`).run(
     'John Member', 'member@ethara.ai', memberHash, 'member'
@@ -125,12 +120,11 @@ if (!existingAdmin) {
     db.prepare(`
       INSERT INTO tasks (title, description, status, priority, project_id, assignee_id, created_by, due_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, date('now', '+7 days'))
-    `).run(title, description, status, priority, proj.lastInsertRowid, assignee_id, manager.id);
+    `).run(title, description, status, priority, proj.lastInsertRowid, assignee_id, adminUser.id);
   }
 
   console.log('✅ Database seeded with sample data');
   console.log('   Admin:   admin@ethara.ai   / Admin@123');
-  console.log('   Manager: manager@ethara.ai / Manager@123');
   console.log('   Member:  member@ethara.ai  / Member@123');
 }
 

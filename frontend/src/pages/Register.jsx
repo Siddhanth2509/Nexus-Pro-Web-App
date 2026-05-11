@@ -45,6 +45,9 @@ export default function Register() {
   const { register, loginWithGoogle } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const googleClientIdRaw = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+  const googleClientId = googleClientIdRaw.includes('YOUR_GOOGLE_CLIENT_ID') ? '' : googleClientIdRaw;
+  const isGoogleEnabled = Boolean(googleClientId);
 
   const strength = getPasswordStrength(form.password);
 
@@ -62,12 +65,9 @@ export default function Register() {
     onSuccess: async (tokenResponse) => {
       setGLoading(true);
       try {
-        const res = await axios.post('/api/auth/google-access', {
-          access_token: tokenResponse.access_token
-        });
-        localStorage.setItem('token', res.data.access);
+        await loginWithGoogle({ accessToken: tokenResponse.access_token });
         toast.success('Signed up with Google!');
-        window.location.href = '/';
+        navigate('/');
       } catch (err) {
         toast.error(err.response?.data?.message || 'Google sign-up failed.');
       } finally {
@@ -76,6 +76,14 @@ export default function Register() {
     },
     onError: () => toast.error('Google sign-up was cancelled.'),
   });
+
+  const handleGoogleClick = () => {
+    if (!isGoogleEnabled) {
+      toast.error('Google sign-up is not configured. Missing VITE_GOOGLE_CLIENT_ID.');
+      return;
+    }
+    handleGoogle();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -309,8 +317,8 @@ export default function Register() {
           {/* Google Sign Up Button */}
           <button
             type="button"
-            onClick={() => handleGoogle()}
-            disabled={googleLoading}
+            onClick={handleGoogleClick}
+            disabled={googleLoading || !isGoogleEnabled}
             className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-white/20 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-50"
           >
             {googleLoading ? (
@@ -325,6 +333,12 @@ export default function Register() {
             )}
             <span className="text-sm font-medium">Sign up with Google</span>
           </button>
+
+          {!isGoogleEnabled && (
+            <p className="text-xs text-amber-400 text-center">
+              Google sign-up is disabled until VITE_GOOGLE_CLIENT_ID is set.
+            </p>
+          )}
         </form>
 
         <div className="mt-5 text-center text-sm text-muted-foreground">

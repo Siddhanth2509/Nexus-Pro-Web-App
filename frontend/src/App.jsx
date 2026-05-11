@@ -1,4 +1,5 @@
 import React from 'react';
+import axios from 'axios';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -17,7 +18,8 @@ import ForgotPassword from './pages/ForgotPassword';
 // Set base URL for production API
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const rawGoogleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = rawGoogleClientId.includes('YOUR_GOOGLE_CLIENT_ID') ? '' : rawGoogleClientId;
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
