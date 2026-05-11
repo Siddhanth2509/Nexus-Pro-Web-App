@@ -45,8 +45,11 @@ function PrivateLayout({ children }) {
 }
 
 export default function App() {
+  const hasGoogleClientId = Boolean(GOOGLE_CLIENT_ID);
+
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    hasGoogleClientId ? (
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <ThemeProvider>
         <AuthProvider>
           <BrowserRouter>
@@ -65,6 +68,26 @@ export default function App() {
           </BrowserRouter>
         </AuthProvider>
       </ThemeProvider>
-    </GoogleOAuthProvider>
+      </GoogleOAuthProvider>
+    ) : (
+      <ThemeProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+            <Routes>
+              <Route path="/login"           element={<Login />} />
+              <Route path="/register"        element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/"          element={<PrivateLayout><Dashboard /></PrivateLayout>} />
+              <Route path="/tasks"     element={<PrivateLayout><Tasks /></PrivateLayout>} />
+              <Route path="/projects"  element={<PrivateLayout><Projects /></PrivateLayout>} />
+              <Route path="/settings"  element={<PrivateLayout><Settings /></PrivateLayout>} />
+              <Route path="/team"      element={<PrivateLayout><Team /></PrivateLayout>} />
+              <Route path="*"          element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
+    )
   );
 }

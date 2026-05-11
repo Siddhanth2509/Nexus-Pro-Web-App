@@ -5,9 +5,8 @@ import { useTheme } from '../context/ThemeContext';
 import ParticleSphere from '../components/ParticleSphere';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun, Lock, Mail, User, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
-import { useGoogleLogin } from '@react-oauth/google';
 import toast from 'react-hot-toast';
-import axios from 'axios';
+import { useGoogleLogin } from '@react-oauth/google';
 
 // Password strength checker
 function getPasswordStrength(password) {
@@ -60,31 +59,6 @@ export default function Register() {
   const passwordsMatch = form.password === form.confirmPassword;
   const isStrongEnough = strength.checks.length && strength.checks.uppercase && strength.checks.number && strength.checks.special;
 
-  // Google Sign Up flow
-  const handleGoogle = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setGLoading(true);
-      try {
-        await loginWithGoogle({ accessToken: tokenResponse.access_token });
-        toast.success('Signed up with Google!');
-        navigate('/');
-      } catch (err) {
-        toast.error(err.response?.data?.message || 'Google sign-up failed.');
-      } finally {
-        setGLoading(false);
-      }
-    },
-    onError: () => toast.error('Google sign-up was cancelled.'),
-  });
-
-  const handleGoogleClick = () => {
-    if (!isGoogleEnabled) {
-      toast.error('Google sign-up is not configured. Missing VITE_GOOGLE_CLIENT_ID.');
-      return;
-    }
-    handleGoogle();
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isStrongEnough) { toast.error('Please use a stronger password.'); return; }
@@ -102,6 +76,26 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  const googleSignup = useGoogleLogin({
+    onSuccess: async (credentialResponse) => {
+      setGLoading(true);
+      try {
+        await loginWithGoogle(credentialResponse.access_token);
+        toast.success('Account created with Google!');
+        navigate('/');
+      } catch (err) {
+        toast.error('Failed to create account with Google');
+        console.error(err);
+      } finally {
+        setGLoading(false);
+      }
+    },
+    onError: () => {
+      toast.error('Google signup failed');
+    },
+    flow: 'implicit'
+  });
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden py-10">
@@ -317,7 +311,7 @@ export default function Register() {
           {/* Google Sign Up Button */}
           <button
             type="button"
-            onClick={handleGoogleClick}
+            onClick={() => googleSignup()}
             disabled={googleLoading || !isGoogleEnabled}
             className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-white/20 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-50"
           >
