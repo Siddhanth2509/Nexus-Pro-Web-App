@@ -1,0 +1,29 @@
+services:
+  # ── Backend API ──────────────────────────────────────────────────────────────
+  - type: web
+    name: nexus-pro-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        value: nexuspro_jwt_secret_2024
+      - key: JWT_REFRESH_SECRET
+        value: nexuspro_refresh_secret_2024
+      - key: NEXUS_ADMIN_SECRET_KEY
+        value: admin123
+
+  # ── Frontend Static Site ──────────────────────────────────────────────────────
+  - type: web
+    name: nexus-pro-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
