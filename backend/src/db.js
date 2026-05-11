@@ -74,12 +74,32 @@ db.exec(`
     used       INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS task_labels (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    label      TEXT NOT NULL,
+    color      TEXT DEFAULT '#6366f1',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(task_id, label)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_comments (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content    TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // ─── Auto-Migrations ──────────────────────────────────────────────────────────
 try { db.prepare('ALTER TABLE users ADD COLUMN bio TEXT;').run(); } catch(e) {}
 try { db.prepare('ALTER TABLE users ADD COLUMN job_title TEXT;').run(); } catch(e) {}
 try { db.prepare("UPDATE users SET role = 'admin' WHERE role = 'manager';").run(); } catch(e) {}
+try { db.prepare('CREATE TABLE IF NOT EXISTS task_labels (id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE, label TEXT NOT NULL, color TEXT DEFAULT "#6366f1", created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(task_id, label));').run(); } catch(e) {}
+try { db.prepare('CREATE TABLE IF NOT EXISTS task_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, content TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);').run(); } catch(e) {}
 
 // ─── Seed Admin User ──────────────────────────────────────────────────────────
 

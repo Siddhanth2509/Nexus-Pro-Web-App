@@ -313,6 +313,17 @@ export default function Tasks() {
                     <td className="px-4 py-3">
                       <span className="text-sm font-medium">{task.title}</span>
                       {task.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>}
+                      {/* Task Labels */}
+                      {task.labels && task.labels.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {task.labels.map((label, idx) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
+                              style={{ backgroundColor: label.color || '#6366f1' }}>
+                              {label.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{task.projectName}</td>
                     <td className="px-4 py-3">

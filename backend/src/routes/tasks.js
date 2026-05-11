@@ -14,6 +14,8 @@ const enrichTask = (task) => {
   task.created_by_user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(task.created_by);
   task.project = db.prepare('SELECT id, name FROM projects WHERE id = ?').get(task.project_id);
   task.is_overdue = !!(task.due_date && task.status !== 'done' && new Date(task.due_date) < new Date());
+  // Add labels to task
+  task.labels = db.prepare('SELECT label, color FROM task_labels WHERE task_id = ? ORDER BY created_at').all(task.id) || [];
   return task;
 };
 
@@ -147,6 +149,52 @@ router.delete('/:id', authenticate, (req, res) => {
 
   db.prepare('DELETE FROM tasks WHERE id = ?').run(task.id);
   res.json({ message: 'Task deleted successfully.' });
+});
+
+// POST /api/tasks/:id/labels - Add label to task
+router.post('/:id/labels', authenticate, [
+  body('label').trim().notEmpty().withMessage('Label is required').isLength({ max: 50 }),
+  body('color').optional().matches(/^#[0-9A-F]{6}$/i).withMessage('Color must be valid hex code'),
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  if (!task) return res.status(404).json({ message: 'Task not found.' });
+
+  if (!canAccessProject(task.project_id, req.user.id, req.user.role)) {
+    return res.status(403).json({ message: 'Access denied.' });
+  }
+
+  const { label, color = '#6366f1' } = req.body;
+
+  try {
+    db.prepare('INSERT INTO task_labels (task_id, label, color) VALUES (?, ?, ?)').run(task.id, label, color);
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) {
+      return res.status(409).json({ message: 'This label already exists on the task.' });
+    }
+    throw e;
+  }
+
+  const labels = db.prepare('SELECT label, color FROM task_labels WHERE task_id = ? ORDER BY created_at').all(task.id);
+  res.status(201).json({ labels });
+});
+
+// DELETE /api/tasks/:id/labels/:label - Remove label from task
+router.delete('/:id/labels/:label', authenticate, (req, res) => {
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  if (!task) return res.status(404).json({ message: 'Task not found.' });
+
+  if (!canAccessProject(task.project_id, req.user.id, req.user.role)) {
+    return res.status(403).json({ message: 'Access denied.' });
+  }
+
+  const label = decodeURIComponent(req.params.label);
+  db.prepare('DELETE FROM task_labels WHERE task_id = ? AND label = ?').run(task.id, label);
+
+  const labels = db.prepare('SELECT label, color FROM task_labels WHERE task_id = ? ORDER BY created_at').all(task.id);
+  res.json({ labels });
 });
 
 module.exports = router;
