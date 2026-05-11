@@ -102,15 +102,14 @@ if (!existingAdmin) {
 
   // Seed sample project
   const adminUser = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@ethara.ai');
-  const manager   = db.prepare('SELECT id FROM users WHERE email = ?').get('manager@ethara.ai');
   const member    = db.prepare('SELECT id FROM users WHERE email = ?').get('member@ethara.ai');
 
   const proj = db.prepare(`
     INSERT INTO projects (name, description, status, owner_id)
     VALUES (?, ?, ?, ?)
-  `).run('Ethara Platform v2', 'Redesign and rebuild the core platform', 'active', manager.id);
+  `).run('Ethara Platform v2', 'Redesign and rebuild the core platform', 'active', adminUser.id);
 
-  db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)').run(proj.lastInsertRowid, manager.id);
+  db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)').run(proj.lastInsertRowid, adminUser.id);
   db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)').run(proj.lastInsertRowid, member.id);
 
   const tasks = [
