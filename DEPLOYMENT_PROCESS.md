@@ -39,6 +39,75 @@
 
 ---
 
+## ✨ NEW FEATURES (v2.0.0)
+
+### Backend Features
+
+**1. Task Labels/Tags System** ✅
+- Add multiple colored labels to organize tasks
+- Custom colors for each label
+- Remove labels from tasks
+- Unique constraint prevents duplicate labels
+- **Endpoints:**
+  - `POST /api/tasks/:id/labels` - Add label to task
+  - `DELETE /api/tasks/:id/labels/:label` - Remove label from task
+
+**2. Task Comments System** ✅
+- Add comments to tasks for collaboration
+- View all comments with user information
+- Delete own comments (or as admin)
+- Comment timestamps and activity logging
+- **Endpoints:**
+  - `GET /api/tasks/:taskId/comments` - Get all comments
+  - `POST /api/tasks/:taskId/comments` - Add comment
+  - `DELETE /api/tasks/:taskId/comments/:id` - Delete comment
+
+**3. Enhanced Database**
+- New `task_labels` table with auto-migration
+- New `task_comments` table with auto-migration
+- All tables created automatically on first run
+- No manual migrations needed
+
+### Frontend Improvements
+
+**1. Task Labels Display** ✅
+- Tasks show colored label badges
+- Labels display under task title
+- Color-coded organization system
+- Professional badge styling
+
+**2. Better Task Organization**
+- Improved visual hierarchy with labels
+- Quick visual scanning of task categories
+- Professional UI enhancements
+
+### API Changes
+
+**Task Response Now Includes Labels:**
+```json
+{
+  "id": 1,
+  "title": "Design dashboard",
+  "status": "in_progress",
+  "priority": "high",
+  "labels": [
+    { "label": "urgent", "color": "#ff0000" },
+    { "label": "design", "color": "#6366f1" }
+  ]
+}
+```
+
+### Security & Testing
+
+✅ All new endpoints require JWT authentication  
+✅ Permission checking on all operations  
+✅ Users can only delete their own comments  
+✅ Proper input validation and error handling  
+✅ SQL injection prevention with parameterized queries  
+✅ Backward compatible - no breaking changes  
+
+---
+
 ## ✅ PREREQUISITES & SETUP
 
 ### Before Starting, Ensure You Have:
