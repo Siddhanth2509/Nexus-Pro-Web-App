@@ -1,21 +1,7 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
   "framework": "vite",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "env": [
-    {
-      "key": "VITE_API_URL",
-      "description": "Backend API URL",
-      "example": "https://yourusername-ethara-backend.hf.space"
-    },
-    {
-      "key": "VITE_GOOGLE_CLIENT_ID",
-      "description": "Google OAuth Client ID from Google Cloud Console",
-      "example": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-    }
-  ],
   "git": {
     "deploymentEnabled": {
       "main": true
